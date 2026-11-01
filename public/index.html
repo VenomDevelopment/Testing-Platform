@@ -337,16 +337,16 @@ function startTest(id){
   if(status(t)!=="open"){toast("This test is not open today.");return}
   if(t.kind!=="chapter"&&hist.some(r=>r.testId===t.id)){toast("This test has already been taken. It can be taken only once.");renderHome();return}
   const saved=LS.get("draft-"+id,null);
-  let order, answers, endAt;
-  if(saved && saved.endAt>Date.now()){({order,answers,endAt}=saved)}
+  let order, answers, endAt, attemptId;
+  if(saved && saved.endAt>Date.now()){({order,answers,endAt,attemptId}=saved)}
   else{
     order=shuffle(t.mcqs.map((q,i)=>({i,opts:shuffle([0,1,2,3])})));
     answers={}; endAt=Date.now()+t.mcqMinutes*60000;
   }
-  view={name:"test",t,order,answers,endAt};
+  view={name:"test",t,order,answers,endAt,attemptId:attemptId||uid()};saveDraft();
   renderTest();
 }
-function saveDraft(){const v=view;LS.set("draft-"+v.t.id,{order:v.order,answers:v.answers,endAt:v.endAt})}
+function saveDraft(){const v=view;LS.set("draft-"+v.t.id,{order:v.order,answers:v.answers,endAt:v.endAt,attemptId:v.attemptId})}
 function renderTest(){
   const {t,order,answers}=view;
   app.innerHTML=`
@@ -382,7 +382,8 @@ function tick(){
   if(s===0){clearInterval(timerInt);toast("Time is up. Part A submitted.");finish()}
 }
 async function finish(){
-  clearInterval(timerInt);
+  if(view.finishing)return;view.finishing=true;
+  clearInterval(timerInt);const sb=$("#submit");if(sb){sb.disabled=true;sb.textContent="Saving..."}
   const {t,order,answers}=view;
   let score=0;const wrongTopics={};
   order.forEach((o,k)=>{if(answers[k]===t.mcqs[o.i][2])score++;else{const tp=t.mcqs[o.i][4];wrongTopics[tp]=(wrongTopics[tp]||0)+1}});
@@ -391,7 +392,7 @@ async function finish(){
   const bySubject={},ans=[];
   order.forEach((o,k)=>{const q=t.mcqs[o.i],sj=q[6]||t.subject,b=bySubject[sj]||(bySubject[sj]={c:0,n:0});b.n++;if(answers[k]===q[2])b.c++;ans.push({q:o.i,a:answers[k]??-1})});
   const timeSec=Math.max(0,Math.round(t.mcqMinutes*60-(view.endAt-Date.now())/1000));
-  const rec={testId:t.id,kind:t.kind,testLabel:`${t.subject} ${t.chapter}`,score,total,pct,wrongTopics,bySubject,ans,timeSec,at:Date.now(),partB:null,partBTotal};
+  const rec={attemptId:view.attemptId,testId:t.id,kind:t.kind,testLabel:`${t.subject} ${t.chapter}`,score,total,pct,wrongTopics,bySubject,ans,timeSec,at:Date.now(),partB:null,partBTotal};
   try{localStorage.removeItem("draft-"+t.id)}catch(e){}
   rec._id=await saveResult(rec);
   view={name:"result",t,order,answers,rec};
@@ -405,7 +406,7 @@ async function api(method,qs,body,pin){
   return r.json();
 }
 async function saveResult(rec){
-  const {_id,...data}=rec;data.clientId=uid();
+  const {_id,attemptId,...data}=rec;data.clientId=attemptId||uid();
   try{const res=await api("POST","",data);online=true;hist.push({...data,_id:res._id});return res._id}
   catch(e){online=false;const q=LS.get("queue",[]);q.push(data);LS.set("queue",q);hist.push({...data,_id:"l"+data.clientId});toast("No connection. Result kept on this phone and will be sent later.");return "l"+data.clientId}
 }

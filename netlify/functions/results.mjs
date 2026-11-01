@@ -26,7 +26,13 @@ export default async (req) => {
       .filter(Boolean)
       .map(r => full ? r : { _id: r._id, testId: r.testId, kind: r.kind, score: r.score, total: r.total, pct: r.pct, at: r.at, clientId: r.clientId });
     rows.sort((a, b) => a.at - b.at);
-    return json({ rows, full });
+    // Daily, weekly and mock tests allow one attempt: drop accidental double saves, keep the first.
+    const seen = new Set(), keep = [];
+    for (const r of rows) {
+      if (r.kind && r.kind !== "chapter" && seen.has(r.testId)) { await store.delete("r/" + r._id); continue; }
+      seen.add(r.testId); keep.push(r);
+    }
+    return json({ rows: keep, full });
   }
 
   if (req.method === "POST") {
@@ -40,6 +46,13 @@ export default async (req) => {
     const id = (typeof rec.clientId === "string" && /^[a-z0-9-]{6,40}$/i.test(rec.clientId)) ? rec.clientId : crypto.randomUUID();
     const existing = await store.get("r/" + id, { type: "json" });
     if (existing) return json({ _id: id, duplicate: true });
+    if (rec.kind && rec.kind !== "chapter") {
+      const { blobs } = await store.list({ prefix: "r/" });
+      for (const b of blobs) {
+        const r = await store.get(b.key, { type: "json" });
+        if (r && r.testId === rec.testId) return json({ _id: r._id, duplicate: true });
+      }
+    }
     rec._id = id;
     rec.at = typeof rec.at === "number" ? rec.at : Date.now();
     await store.setJSON("r/" + id, rec);
