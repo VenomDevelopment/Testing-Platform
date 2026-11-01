@@ -270,7 +270,9 @@ MOCKS.forEach(m=>{
 });
 TESTS.sort((a,b)=>a.date<b.date?-1:a.date>b.date?1:(a.kind==="daily"?-1:b.kind==="daily"?1:0));
 function todayISO(){const d=new Date();return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0")}
-function status(t){const td=todayISO();if(t.kind==="chapter")return t.date<=td?"open":"locked";return t.date===td?"open":(t.date<td?"closed":"locked")}
+/* One-time catch-up: tests reopened until the given date (still one attempt each) */
+const REOPEN={"daily-2026-10-30":"2026-11-03","daily-2026-10-31":"2026-11-03"};
+function status(t){const td=todayISO();if(t.kind!=="chapter"&&REOPEN[t.id]&&t.date<td&&td<=REOPEN[t.id])return "open";if(t.kind==="chapter")return t.date<=td?"open":"locked";return t.date===td?"open":(t.date<td?"closed":"locked")}
 /* ===================== STATE ===================== */
 const $ = s => document.querySelector(s);
 const app = $("#app");
