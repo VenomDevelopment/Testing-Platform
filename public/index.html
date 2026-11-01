@@ -510,14 +510,15 @@ function renderProgress(){
   </section>
   ${pendingB.length?`<section class="sheet"><h2>Written parts to mark</h2><div style="display:grid;gap:10px;margin-top:8px">${pendingB.map(r=>`<div class="row" style="justify-content:space-between"><span>${esc(r.testLabel)} <span class="note">${fmtDate(r.at)}</span></span><button class="btn ghost" data-review="${r._id}">Open and mark</button></div>`).join("")}</div></section>`:""}
   <section class="sheet"><h2>Schedule</h2><p class="note" style="margin:4px 0 10px">Every test due up to today. Open any attempt to see each MCQ and her answer.</p>
-    <div class="tablebox"><table class="hist"><thead><tr><th>Date</th><th>Test</th><th>MCQs</th><th>Written</th><th>Time</th><th></th></tr></thead><tbody>
+    <div class="tablebox"><table class="hist"><thead><tr><th>Date</th><th>Test</th><th>MCQs</th><th>Written</th><th>Overall</th><th>Time</th><th></th></tr></thead><tbody>
     ${due.slice().reverse().map(t=>{const att=rows.filter(r=>r.testId===t.id).reverse();const st=status(t);
-      if(!att.length)return `<tr><td class="num">${niceDate(t.date)}</td><td>${esc(kindName(t))}</td><td colspan="3">${st==="closed"?`<span class="pill p-bad">Missed</span>`:`<span class="pill p-warn">Not taken yet</span>`}</td><td></td></tr>`;
-      return att.map((r,i)=>`<tr><td class="num">${i?"":niceDate(t.date)}</td><td>${i?`<span class="note">earlier attempt</span>`:esc(kindName(t))}</td><td><span class="pill p-${band(r.pct)}">${r.score}/${r.total} &middot; ${r.pct}%</span></td><td class="num">${r.partBTotal?(r.partB!=null?r.partB+"/"+r.partBTotal:"to mark"):"&ndash;"}</td><td class="num">${r.timeSec!=null?Math.round(r.timeSec/60)+" min":"&ndash;"}</td><td>${r.ans?`<button class="btn ghost sm" data-review="${r._id}">View answers</button>`:""}</td></tr>`).join("")}).join("")}
+      if(!att.length)return `<tr><td class="num">${niceDate(t.date)}</td><td>${esc(kindName(t))}</td><td colspan="4">${st==="closed"?`<span class="pill p-bad">Missed</span>`:`<span class="pill p-warn">Not taken yet</span>`}</td><td></td></tr>`;
+      return att.map((r,i)=>`<tr><td class="num">${i?"":niceDate(t.date)}</td><td>${i?`<span class="note">earlier attempt</span>`:esc(kindName(t))}</td><td><span class="pill p-${band(r.pct)}">${r.score}/${r.total} &middot; ${r.pct}%</span></td><td class="num">${r.partBTotal?(r.partB!=null?r.partB+"/"+r.partBTotal:"to mark"):"&ndash;"}</td><td>${overall(r)}</td><td class="num">${r.timeSec!=null?Math.round(r.timeSec/60)+" min":"&ndash;"}</td><td>${r.ans?`<button class="btn ghost sm" data-review="${r._id}">View answers</button>`:""}</td></tr>`).join("")}).join("")}
     </tbody></table></div></section>`;
   app.querySelectorAll("[data-review]").forEach(b=>b.onclick=()=>renderReview(b.dataset.review));
   $("#lock").onclick=()=>{portalPin=null;LS.set("pin",null);location.hash="";};
 }
+function overall(r){const wb=r.partBTotal&&r.partB!=null;const got=r.score+(wb?r.partB:0),of=r.total+(wb?r.partBTotal:0);const p=of?Math.round(got/of*100):0;return `<span class="pill p-${band(p)}">${p}%</span>${r.partBTotal&&!wb?`<span class="note" style="display:block">MCQs only</span>`:""}`}
 function kindName(t){return t.kind==="mock"?`Monthly mock: ${t.subject}`:t.kind==="chapter"?`Chapter test: ${t.subject} ${t.chapter}`:t.kind==="weekly"?"Weekly test":"Daily quiz"}
 function tile(label,val,sub,p){return `<div class="sheet tile ${p!=null?"t-"+band(p):""}"><span class="eyebrow">${label}</span><span class="tv num">${val}</span><span class="note">${sub}</span></div>`}
 function trend(rows){
